@@ -68,28 +68,32 @@ void decode() {
 	if (fm_mode) {
 
 	} else {
-		uint8_t *buffer = malloc(2);
+		uint8_t *data = malloc(2);
+		
 		size_t size = 0;
-		int bit_ptr = 0;
-
+		int bit_ptr = 7;
+	
+		*data = 0;
 		while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
 			uint8_t bit = (samples[0] == encoded_one);
 			
 			printf("%d", bit);
-			*(buffer) |= (bit << bit_ptr++);
-			if (bit_ptr == 8) {
-				bit_ptr = 0;
+			// *buffer |= (bit << bit_ptr);
+			bit_ptr--;
+
+			if (bit_ptr < 0) {
 				size++;
-				printf("\n");
+				printf("\n%X\n", *data);
 				break;
 			}
 		}
 		
-		for (int i = 7; i >= 0; i--)
-			printf("%d", (*buffer >> i) & 1);
+		for (int i = 0; i < 8; i++)
+			printf("%d", ((*data) >> i) & 1);
 		printf("\n");
 
-		printf("%X %d %d\n", *buffer, bit_ptr, size);
+
+		printf("%X %d %d\n", *data, bit_ptr, size);
 	}
 
 	free(samples);
