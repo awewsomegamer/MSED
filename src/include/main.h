@@ -7,6 +7,8 @@
 
 #include "backends/standard.h"
 
+extern int samples_per_bit;
+
 enum {
 	BACKEND_STD,
 	BACKEND_COUNT,

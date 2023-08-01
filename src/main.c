@@ -12,6 +12,7 @@ uint8_t mode = 0; // 0: Encode 1: Decode
 FILE *from = NULL;
 FILE *to = NULL;
 TinyWav tw;
+int samples_per_bit = 0;
 
 int enc_dec_mode = 0;
 
@@ -21,6 +22,10 @@ float (*encode_functions[BACKEND_COUNT])(uint8_t) = {
 
 uint8_t (*decode_functions[BACKEND_COUNT])(float) = {
 	[BACKEND_STD] = backend_std_decode,
+};
+
+void (*functions_init[BACKEND_COUNT])() = { 
+	[BACKEND_STD] = backend_std_init,
 };
 
 // Wrapper functions which call different functions based
@@ -37,19 +42,18 @@ void encode() {
 	uint8_t *data = malloc(file_size);
 	fread(data, 1, file_size, from);
 
-	float wiggle = 0;
+	float time = 0;
 	for (size_t i = 0; i < file_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
-			float *samples = (float *)malloc(sizeof(float) * freq);
+			float *samples = (float *)malloc(samples_per_bit);
 
-			for (int s = 0; s < freq; s++) {
-				samples[s] = sin(freq / wiggle) / 2;
-				wiggle += 0.01;
+			for (int s = 0; s < samples_per_bit; s++) {
+				samples[s] = sin(time * freq) / 2;
+				time += 0.01;
 			}
 
-			tinywav_write_f(&tw, samples, freq);
-			memset(samples, 0, freq);
+			tinywav_write_f(&tw, samples, samples_per_bit);
 			free(samples);
 		}
 		
@@ -102,6 +106,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
+
+	(*functions_init[enc_dec_mode])();
 
 	uint8_t *buffer;
 	if (mode == 1) {
