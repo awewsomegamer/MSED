@@ -1,2 +1,4 @@
+SOURCES := $(shell find ./src/ -type f -name '*.c')
+
 all:
-	gcc src/*.c -Isrc/include -o encoder.out
+	gcc $(SOURCES) -Isrc/include -o encoder.out

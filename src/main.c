@@ -2,28 +2,60 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "include/main.h"
+#include "include/tinywav.h"
+
+#define SAMPLE_RATE 48000
 
 uint8_t mode = 0; // 0: Encode 1: Decode
 FILE *from = NULL;
 FILE *to = NULL;
+TinyWav tw;
 
 int enc_dec_mode = 0;
-const char *enc_dec_modes[] = {
-	"std"
+
+float (*encode_functions[BACKEND_COUNT])(uint8_t) = {
+	[BACKEND_STD] = backend_std_encode,
+};
+
+uint8_t (*decode_functions[BACKEND_COUNT])(float) = {
+	[BACKEND_STD] = backend_std_decode,
 };
 
 // Wrapper functions which call different functions based
 // on enc_dec_mode. This way data can be encoded / decoded
 // by calling one function and not having to worry about how.
 // All we get back is data. "Middle End"
-uint8_t *encode() {
+void encode() {
+	// Get the size of the file to be encoded
+	fseek(from, 0, SEEK_END);
+	size_t file_size = ftell(from);
+	fseek(from, 0, SEEK_SET);
 
-	return NULL;
+	// Read in the data from the file to be encoded
+	uint8_t *data = malloc(file_size);
+	fread(data, 1, file_size, from);
+
+	for (size_t i = 0; i < file_size; i += SAMPLE_RATE / 8) {
+		float samples[SAMPLE_RATE];
+
+		for (size_t x = 0; x < SAMPLE_RATE / 8; x++) {
+			// Go from lowest bit to highest
+			for (int j = 0; j < 8; j++) {
+				// Get bit current bit
+				uint8_t bit = (data[i + x] >> j) & 1;
+				// Generate a sample "get frequency"
+				samples[x * 8 + j] = (*encode_functions)(bit);
+			}
+		}
+
+		// tinywav_write_f(&tw, samples, sizeof(samples));
+		memset(samples, 0, SAMPLE_RATE);
+	}
 }
 
-uint8_t *decode() {
+void decode() {
 
-	return NULL;
 }
 
 // encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode
@@ -54,6 +86,11 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	if (mode == 0)
+		tinywav_open_write(&tw, 1, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, argv[2]);
+	else
+		tinywav_open_read(&tw, argv[1], TW_SPLIT);
+
 	// enc_dec_mode was specified
 	if (argc > 3) {
 		for (int i = 0; i < sizeof(enc_dec_modes) / sizeof(enc_dec_modes[0]); i++) {
@@ -66,19 +103,14 @@ int main(int argc, char **argv) {
 
 	uint8_t *buffer;
 	if (mode == 1) {
-		// Do decode stuff
-		buffer = decode();
+		decode();
+		tinywav_close_read(&tw);
 
-		goto save_generated;
+		return 0;
 	}
 
-	// Do encode stuff
-	buffer = encode();
-
-	save_generated:
-
-
-
+	encode();
+	tinywav_close_write(&tw);
 
 	return 0;
 }
