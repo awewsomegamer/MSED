@@ -4,6 +4,7 @@
 #include <string.h>
 #include "include/main.h"
 #include "include/tinywav.h"
+#include <math.h>
 
 #define SAMPLE_RATE 48000
 
@@ -36,18 +37,11 @@ void encode() {
 	uint8_t *data = malloc(file_size);
 	fread(data, 1, file_size, from);
 
-	for (size_t i = 0; i < file_size; i += SAMPLE_RATE / 8) {
+	for (size_t i = 0; i < file_size; i++) {
 		float samples[SAMPLE_RATE];
 
-		for (size_t x = 0; x < SAMPLE_RATE / 8; x++) {
-			// Go from lowest bit to highest
-			for (int j = 0; j < 8; j++) {
-				// Get bit current bit
-				uint8_t bit = (data[i + x] >> j) & 1;
-				// Generate a sample "get frequency"
-				samples[x * 8 + j] = (*encode_functions)(bit);
-			}
-		}
+		for (int j = 0; j < SAMPLE_RATE; j++)
+			samples[j] = sin(j);
 
 		tinywav_write_f(&tw, samples, SAMPLE_RATE);
 		memset(samples, 0, SAMPLE_RATE);
