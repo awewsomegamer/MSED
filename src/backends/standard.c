@@ -2,7 +2,8 @@
 #include "../include/main.h"
 
 void backend_std_init() {
-	samples_per_bit = 240;
+	if (samples_per_bit == 0)
+		samples_per_bit = 240;
 }
 
 float backend_std_encode(uint8_t data) {

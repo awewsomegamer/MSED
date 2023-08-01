@@ -6,7 +6,8 @@
 #include "include/tinywav.h"
 #include <math.h>
 
-#define SAMPLE_RATE 48000
+#define SAMPLE_RATE 48000 // Idea: could be neat if the user was able to specify this
+			  // although, I don't know how useful that would be.
 
 uint8_t mode = 0; // 0: Encode 1: Decode
 FILE *from = NULL;
@@ -29,10 +30,8 @@ void (*functions_init[BACKEND_COUNT])() = {
 	[BACKEND_STD] = backend_std_init,
 };
 
-// Wrapper functions which call different functions based
-// on enc_dec_mode. This way data can be encoded / decoded
-// by calling one function and not having to worry about how.
-// All we get back is data. "Middle End"
+// Wrapper functions
+
 void encode() {
 	// Get the size of the file to be encoded
 	fseek(from, 0, SEEK_END);
@@ -64,14 +63,14 @@ void decode() {
 
 }
 
-// encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode
-// encoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode
-// encoder.out <from> <to> [encoder / decoder mode]
+// encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation
+// encoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation
+// encoder.out <from> <to> [options]
 //			       ^
 //			       to
 int main(int argc, char **argv) {
 	if (argc < 3) {
-		printf("Use case (only use .bin or .wav files):\nencoder.out <from> <to> [encoder / decoder mode]\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode\n");
+		printf("Use case (only use .bin or .wav files):\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation\nencoder.out <from> <to> [options]");
 		return 1;
 	}
 
@@ -109,6 +108,8 @@ int main(int argc, char **argv) {
 				}
 			} else if (strcmp(argv[i], "-fm") == 0) {
 				fm_mode = 1;
+			} else if (strcmp(argv[i], "-spb") == 0) {
+				samples_per_bit = atoi(argv[i + 1]);
 			}
 		}
 
