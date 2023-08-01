@@ -50,32 +50,39 @@ void encode() {
 			
 			for (int s = 0; s < samples_per_bit; s++) {
 				samples[s] = sin(time * freq) / 2;
-				time += (fm_mode ? 0.01 : 0);
+				time += (fm_mode ? 0.0001 : 0);
 			}
 
-			// tinywav_write_f(&tw, samples, samples_per_bit);
+			tinywav_write_f(&tw, samples, samples_per_bit);
 			free(samples);
 		}
 	}
 }
 
 void decode() {
-	float *samples = malloc(samples_per_bit);
+	float *samples = malloc(samples_per_bit * sizeof(float));
 
 	float encoded_one = sin((*encode_functions[enc_dec_mode])(1)) / 2;
 
 	if (fm_mode) {
 
 	} else {
-		uint8_t *data = malloc(1);
-		
-		tinywav_read_f(&tw, samples, samples_per_bit);
+		uint8_t *buffer = malloc(1);
+		size_t size = 0;
+		int bit_ptr = 0;
 
-		for (int i = 0; i < 8; i++)
-			printf("%d", ((*data) >> i) & 1);
-		printf("\n");
+		while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
+			uint8_t bit = (samples[0] == encoded_one);
 
-		printf("%X\n", *data);
+			*(buffer + size) |= (bit << bit_ptr++);
+
+			if (bit_ptr == 8) {
+				bit_ptr = 0;
+				buffer = realloc(buffer, ++size + 1);
+			}
+		}
+
+		fwrite(buffer, 1, size + 1, to);
 	}
 
 	free(samples);
@@ -137,7 +144,7 @@ int main(int argc, char **argv) {
 
 	if (mode == 1) {
 		decode();
-		// tinywav_close_read(&tw);
+		tinywav_close_read(&tw);
 
 		return 0;
 	}
