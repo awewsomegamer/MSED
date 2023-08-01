@@ -46,7 +46,7 @@ void encode() {
 	for (size_t i = 0; i < file_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
-			float *samples = (float *)malloc(samples_per_bit);
+			float *samples = (float *)malloc(samples_per_bit * sizeof(float));
 			
 			for (int s = 0; s < samples_per_bit; s++) {
 				samples[s] = sin(time * freq) / 2;
