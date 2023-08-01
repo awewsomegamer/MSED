@@ -49,7 +49,7 @@ void encode() {
 			}
 		}
 
-		// tinywav_write_f(&tw, samples, sizeof(samples));
+		tinywav_write_f(&tw, samples, SAMPLE_RATE);
 		memset(samples, 0, SAMPLE_RATE);
 	}
 }
