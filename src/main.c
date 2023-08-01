@@ -37,11 +37,20 @@ void encode() {
 	uint8_t *data = malloc(file_size);
 	fread(data, 1, file_size, from);
 
-	for (size_t i = 0; i < file_size; i++) {
+	float wiggle = 0;
+	for (size_t i = 0; i < file_size; i += SAMPLE_RATE / 400) {
 		float samples[SAMPLE_RATE];
+	
+		for (int j = 0; j < SAMPLE_RATE / 400; j++) {
+			for (int x = 0; x < 8; x++) {
+				float freq = (*encode_functions[enc_dec_mode])((data[i + j]));
 
-		for (int j = 0; j < SAMPLE_RATE; j++)
-			samples[j] = sin(j);
+				for (int c = 0; c < 400; c++) {
+					samples[j * 400 + c] = sin(freq + wiggle);
+					wiggle += 0.001;
+				}
+			}
+		}
 
 		tinywav_write_f(&tw, samples, SAMPLE_RATE);
 		memset(samples, 0, SAMPLE_RATE);
