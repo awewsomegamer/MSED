@@ -15,6 +15,7 @@ TinyWav tw;
 int samples_per_bit = 0;
 
 int enc_dec_mode = 0;
+uint8_t fm_mode = 0;
 
 float (*encode_functions[BACKEND_COUNT])(uint8_t) = {
 	[BACKEND_STD] = backend_std_encode,
@@ -42,21 +43,20 @@ void encode() {
 	uint8_t *data = malloc(file_size);
 	fread(data, 1, file_size, from);
 
-	float time = 0;
+	float time = !fm_mode;
 	for (size_t i = 0; i < file_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
 			float *samples = (float *)malloc(samples_per_bit);
-
+			
 			for (int s = 0; s < samples_per_bit; s++) {
 				samples[s] = sin(time * freq) / 2;
-				time += 0.01;
+				time += (fm_mode ? 0.01 : 0);
 			}
 
 			tinywav_write_f(&tw, samples, samples_per_bit);
 			free(samples);
 		}
-		
 	}
 }
 
@@ -97,14 +97,21 @@ int main(int argc, char **argv) {
 	else
 		tinywav_open_read(&tw, argv[1], TW_SPLIT);
 
-	// enc_dec_mode was specified
-	if (argc > 3) {
-		for (int i = 0; i < sizeof(enc_dec_modes) / sizeof(enc_dec_modes[0]); i++) {
-			if (strcmp(argv[3], enc_dec_modes[i]) == 0) {
-				enc_dec_mode = i;
-				break;
+	// More options have been specified
+	if (argc >= 3) {
+		for (int i = 3; i < argc; i++) {
+			if (strcmp(argv[i], "-mode") == 0) {
+				for (int j = 0; j < sizeof(enc_dec_modes) / sizeof(enc_dec_modes[0]); j++) {
+					if (strcmp(argv[i + 1], enc_dec_modes[j]) == 0) {
+						enc_dec_mode = i;
+						break;
+					}
+				}
+			} else if (strcmp(argv[i], "-fm") == 0) {
+				fm_mode = 1;
 			}
 		}
+
 	}
 
 	(*functions_init[enc_dec_mode])();
