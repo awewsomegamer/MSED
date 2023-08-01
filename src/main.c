@@ -117,6 +117,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (mode == 0)
+		// Idea: Wouldn't it be neat to have multiple channels of data?
 		tinywav_open_write(&tw, 1, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, argv[2]);
 	else
 		tinywav_open_read(&tw, argv[1], TW_INLINE);
