@@ -17,6 +17,7 @@
 
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #if _WIN32
 #include <winsock.h>
