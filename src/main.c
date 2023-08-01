@@ -74,19 +74,10 @@ void decode() {
 		int bit_ptr = 7;
 	
 		*data = 0;
-		while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
-			uint8_t bit = (samples[0] == encoded_one);
-			
-			printf("%d", bit);
-			// *buffer |= (bit << bit_ptr);
-			bit_ptr--;
-
-			if (bit_ptr < 0) {
-				size++;
-				printf("\n%X\n", *data);
-				break;
-			}
-		}
+		tinywav_read_f(&tw, samples, samples_per_bit);
+		// while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
+		// 	uint8_t bit = (samples[0] == encoded_one);	
+		// }
 		
 		for (int i = 0; i < 8; i++)
 			printf("%d", ((*data) >> i) & 1);
