@@ -60,7 +60,34 @@ void encode() {
 }
 
 void decode() {
+	printf("%d\n", samples_per_bit);
+	float *samples = malloc(samples_per_bit);
 
+	float encoded_one = sin((*encode_functions[enc_dec_mode])(1)) / 2;
+
+	if (fm_mode) {
+
+	} else {
+		uint8_t *buffer = malloc(1);
+		size_t size = 0;
+		int bit_ptr = 0;
+
+		while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
+			uint8_t bit = (samples[0] == encoded_one);
+			
+			*(buffer + size) |= (bit << bit_ptr++);
+			if (bit_ptr == 8) {
+				bit_ptr = 0;
+				size++;
+				break;
+				// buffer = realloc(buffer, size + 1);
+			}
+		}
+
+		printf("%s %d %d\n", buffer, bit_ptr, size);
+	}
+
+	free(samples);
 }
 
 // encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation
@@ -94,7 +121,7 @@ int main(int argc, char **argv) {
 	if (mode == 0)
 		tinywav_open_write(&tw, 1, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, argv[2]);
 	else
-		tinywav_open_read(&tw, argv[1], TW_SPLIT);
+		tinywav_open_read(&tw, argv[1], TW_INLINE);
 
 	// More options have been specified
 	if (argc >= 3) {
