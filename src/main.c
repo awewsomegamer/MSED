@@ -42,11 +42,10 @@ void encode() {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
 			float *samples = (float *)malloc(sizeof(float) * freq);
-			wiggle = 0;
-			
+
 			for (int s = 0; s < freq; s++) {
-				samples[s] = sin(freq + wiggle);
-				wiggle += 0.001;
+				samples[s] = sin(freq * wiggle) / 10;
+				wiggle += 0.1;
 			}
 
 			tinywav_write_f(&tw, samples, freq);
