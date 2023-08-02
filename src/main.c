@@ -8,12 +8,13 @@
 
 #define SAMPLE_RATE 48000 // Idea: could be neat if the user was able to specify this
 			  // although, I don't know how useful that would be.
+#define STD_SAMPLE_COUNT (SAMPLE_RATE / 10)
 
 uint8_t mode = 0; // 0: Encode 1: Decode
 FILE *from = NULL;
 FILE *to = NULL;
 TinyWav tw;
-int samples_per_bit = 0;
+int cycles_per_bit = 0;
 
 int enc_dec_mode = 0;
 uint8_t fm_mode = 0;
@@ -43,38 +44,40 @@ void encode() {
 	fread(data, 1, file_size, from);
 
 	float time = !fm_mode;
-	size_t size = 1;
 	for (size_t i = 0; i < file_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
-			float *samples = (float *)malloc(SAMPLE_RATE);
-			int sample_zero_count = 0;
-			
-			int s = 0;
-			for (; s < samples_per_bit; s++) {
-				samples[s] = sin(time * freq) / 2;
-				
-				if (s > 0 && samples[s - 1] <= 0 && samples[s] >= 0)
-					sample_zero_count++;
-				// Cycle complete
-				if (sample_zero_count == 3) {
-					samples[s] = 0;
-					break;
+			float *samples = (float *)malloc(480);
+
+			for (int cycles = 0; cycles < cycles_per_bit; cycles++) {
+				int sample_zero_count = 0;
+				int s = 0;
+				for (; s < (fm_mode ? STD_SAMPLE_COUNT : 1); s++) {
+					samples[s] = sin(time * freq) / 2;
+					
+					if (s > 0 && samples[s - 1] <= 0 && samples[s] >= 0)
+						sample_zero_count++;
+					// Cycle complete
+					if (sample_zero_count == 3) {
+						samples[s] = 0;
+						break;
+					}
+
+					time += (fm_mode ? 0.0001 : 0);
 				}
 
-				time += (fm_mode ? 0.0001 : 0);
+				time = !fm_mode;
+
+				tinywav_write_f(&tw, samples, s);
 			}
 
-			time = 0;
-
-			tinywav_write_f(&tw, samples, s);
 			free(samples);
 		}
 	}
 }
 
 void decode() {
-	float *samples = malloc(samples_per_bit * sizeof(float));
+	float *samples = malloc(STD_SAMPLE_COUNT * sizeof(float));
 
 	float encoded_one = sin((*encode_functions[enc_dec_mode])(1)) / 2;
 
@@ -85,7 +88,7 @@ void decode() {
 		size_t size = 0;
 		int bit_ptr = 0;
 
-		while (tinywav_read_f(&tw, samples, samples_per_bit) != 0) {
+		while (tinywav_read_f(&tw, samples, STD_SAMPLE_COUNT) != 0) {
 			uint8_t bit = (samples[0] == encoded_one);
 
 			*(buffer + size) |= (bit << bit_ptr++);
@@ -109,7 +112,23 @@ void decode() {
 //			       to
 int main(int argc, char **argv) {
 	if (argc < 3) {
-		printf("Use case (only use .bin or .wav files):\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation\nencoder.out <from> <to> [options]");
+		if (strcmp(argv[1], "options") == 0) {
+			printf("    encoder.out a b [options]\n");
+			printf("\ta - File whose data to encode / decode\n");
+			printf("\t    If file 'a' is a .bin then the program is encoding to 'b', if it is a .wav then it is decoding to 'b'.\n");
+			printf("\tb - File to encode / decode data to\n");
+			printf("\t-mode <name> - The name of the backend to use (hint: execute command encoder.out modes)\n");
+			printf("\t-fm - Enable frequency modulated mode\n");
+			printf("\t-cpb <integer> - Cycles Per Bit in FM mode, otherwise Samples Per Bit in PM mode\n");
+			return 0;
+		} else if (strcmp(argv[1], "modes") == 0) {
+			for (int i = 0; i < BACKEND_COUNT; i++)
+				printf("%s\n", enc_dec_modes[i]);
+
+			return 0;
+		}
+
+		printf("Use case (only use .bin or .wav files):\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation\nencoder.out <from> <to> [options]\nType encoder.out options to see a list of options.\n");
 		return 1;
 	}
 
@@ -149,7 +168,7 @@ int main(int argc, char **argv) {
 			} else if (strcmp(argv[i], "-fm") == 0) {
 				fm_mode = 1;
 			} else if (strcmp(argv[i], "-cpb") == 0) {
-				samples_per_bit = atoi(argv[i + 1]);
+				cycles_per_bit = atoi(argv[i + 1]);
 			}
 		}
 
