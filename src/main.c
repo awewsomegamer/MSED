@@ -4,18 +4,13 @@
 #include <string.h>
 #include "include/main.h"
 #include "include/tinywav.h"
-#include <math.h>
-
-#define SAMPLE_RATE 48000 // Idea: could be neat if the user was able to specify this
-			  // although, I don't know how useful that would be.
-#define STD_SAMPLE_COUNT (SAMPLE_RATE / 10)
 
 uint8_t mode = 0; // 0: Encode 1: Decode
 FILE *from = NULL;
 FILE *to = NULL;
 TinyWav tw;
-int cycles_per_bit = 0;
 
+int cycles_per_bit = 0;
 int enc_dec_mode = 0;
 uint8_t fm_mode = 0;
 
@@ -23,7 +18,7 @@ float (*encode_functions[BACKEND_COUNT])(uint8_t) = {
 	[BACKEND_STD] = backend_std_encode,
 };
 
-uint8_t (*decode_functions[BACKEND_COUNT])(float) = {
+uint8_t (*decode_functions[BACKEND_COUNT])(float *, uint8_t *, size_t *, int *) = {
 	[BACKEND_STD] = backend_std_decode,
 };
 
@@ -53,17 +48,19 @@ void encode() {
 				int sample_zero_count = 0;
 				int s = 0;
 				for (; s < (fm_mode ? STD_SAMPLE_COUNT : 1); s++) {
-					samples[s] = sin(time * freq) / 2;
+					samples[s] = fm_mode ? FM_WAVIFY(time, freq) : PM_WAVIFY(freq);
 					
+					// Detect every time the signal crosses zero
 					if (s > 0 && samples[s - 1] <= 0 && samples[s] >= 0)
 						sample_zero_count++;
+
 					// Cycle complete
 					if (sample_zero_count == 3) {
 						samples[s] = 0;
 						break;
 					}
 
-					time += (fm_mode ? 0.0001 : 0);
+					time += (fm_mode ? TIME_INC : 0);
 				}
 
 				time = !fm_mode;
@@ -79,28 +76,22 @@ void encode() {
 void decode() {
 	float *samples = malloc(STD_SAMPLE_COUNT * sizeof(float));
 
-	float encoded_one = sin((*encode_functions[enc_dec_mode])(1)) / 2;
+	uint8_t *buffer = malloc(1);
+	size_t size = 0;
+	int bit_ptr = 0;
 
-	if (fm_mode) {
+	while (tinywav_read_f(&tw, samples, STD_SAMPLE_COUNT) != 0) {
+		uint8_t bit = (*decode_functions[enc_dec_mode])(samples, buffer, &size, &bit_ptr);
 
-	} else {
-		uint8_t *buffer = malloc(1);
-		size_t size = 0;
-		int bit_ptr = 0;
+		*(buffer + size) |= (bit << bit_ptr++);
 
-		while (tinywav_read_f(&tw, samples, STD_SAMPLE_COUNT) != 0) {
-			uint8_t bit = (samples[0] == encoded_one);
-
-			*(buffer + size) |= (bit << bit_ptr++);
-
-			if (bit_ptr == 8) {
-				bit_ptr = 0;
-				buffer = realloc(buffer, ++size + 1);
-			}
+		if (bit_ptr == 8) {
+			bit_ptr = 0;
+			buffer = realloc(buffer, ++size + 1);
 		}
-
-		fwrite(buffer, 1, size + 1, to);
 	}
+
+	fwrite(buffer, 1, size + 1, to);
 
 	free(samples);
 }
