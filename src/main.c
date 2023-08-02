@@ -43,17 +43,31 @@ void encode() {
 	fread(data, 1, file_size, from);
 
 	float time = !fm_mode;
+	size_t size = 1;
 	for (size_t i = 0; i < file_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
-			float *samples = (float *)malloc(samples_per_bit * sizeof(float));
+			float *samples = (float *)malloc(SAMPLE_RATE);
+			int sample_zero_count = 0;
 			
-			for (int s = 0; s < samples_per_bit; s++) {
+			int s = 0;
+			for (; s < samples_per_bit; s++) {
 				samples[s] = sin(time * freq) / 2;
+				
+				if (s > 0 && samples[s - 1] <= 0 && samples[s] >= 0)
+					sample_zero_count++;
+				// Cycle complete
+				if (sample_zero_count == 3) {
+					samples[s] = 0;
+					break;
+				}
+
 				time += (fm_mode ? 0.0001 : 0);
 			}
 
-			tinywav_write_f(&tw, samples, samples_per_bit);
+			time = 0;
+
+			tinywav_write_f(&tw, samples, s);
 			free(samples);
 		}
 	}
@@ -134,7 +148,7 @@ int main(int argc, char **argv) {
 				}
 			} else if (strcmp(argv[i], "-fm") == 0) {
 				fm_mode = 1;
-			} else if (strcmp(argv[i], "-spb") == 0) {
+			} else if (strcmp(argv[i], "-cpb") == 0) {
 				samples_per_bit = atoi(argv[i + 1]);
 			}
 		}
