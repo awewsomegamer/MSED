@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "backends/standard.h"
+#include "tinywav.h"
 
 #define SAMPLE_RATE 48000 // Idea: could be neat if the user was able to specify this
 			  // although, I don't know how useful that would be.
@@ -17,7 +18,12 @@
 
 extern int cycles_per_bit;
 extern int enc_dec_mode;
+extern int tolerance;
 extern uint8_t fm_mode;
+
+extern FILE *from;
+extern FILE *to;
+extern TinyWav tw;
 
 enum {
 	BACKEND_STD,

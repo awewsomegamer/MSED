@@ -10,91 +10,22 @@ FILE *from = NULL;
 FILE *to = NULL;
 TinyWav tw;
 
-int cycles_per_bit = 0;
+int cycles_per_bit = 1;
 int enc_dec_mode = 0;
+int tolerance = 0;
 uint8_t fm_mode = 0;
 
-float (*encode_functions[BACKEND_COUNT])(uint8_t) = {
+void (*encode_functions[BACKEND_COUNT])() = {
 	[BACKEND_STD] = backend_std_encode,
 };
 
-uint8_t (*decode_functions[BACKEND_COUNT])(float *, uint8_t *, size_t *, int *) = {
+size_t (*decode_functions[BACKEND_COUNT])(uint8_t *) = {
 	[BACKEND_STD] = backend_std_decode,
 };
 
 void (*functions_init[BACKEND_COUNT])() = { 
 	[BACKEND_STD] = backend_std_init,
 };
-
-// Wrapper functions
-
-void encode() {
-	// Get the size of the file to be encoded
-	fseek(from, 0, SEEK_END);
-	size_t file_size = ftell(from);
-	fseek(from, 0, SEEK_SET);
-
-	// Read in the data from the file to be encoded
-	uint8_t *data = malloc(file_size);
-	fread(data, 1, file_size, from);
-
-	float time = !fm_mode;
-	for (size_t i = 0; i < file_size; i++) {
-		for (int j = 0; j < 8; j++) {
-			float freq = (*encode_functions[enc_dec_mode])((data[i] >> j) & 1);
-			float *samples = (float *)malloc(480);
-
-			for (int cycles = 0; cycles < cycles_per_bit; cycles++) {
-				int sample_zero_count = 0;
-				int s = 0;
-				for (; s < (fm_mode ? STD_SAMPLE_COUNT : 1); s++) {
-					samples[s] = fm_mode ? FM_WAVIFY(time, freq) : PM_WAVIFY(freq);
-					
-					// Detect every time the signal crosses zero
-					if (s > 0 && samples[s - 1] <= 0 && samples[s] >= 0)
-						sample_zero_count++;
-
-					// Cycle complete
-					if (sample_zero_count == 3) {
-						samples[s] = 0;
-						break;
-					}
-
-					time += (fm_mode ? TIME_INC : 0);
-				}
-
-				time = !fm_mode;
-
-				tinywav_write_f(&tw, samples, s);
-			}
-
-			free(samples);
-		}
-	}
-}
-
-void decode() {
-	float *samples = malloc(STD_SAMPLE_COUNT * sizeof(float));
-
-	uint8_t *buffer = malloc(1);
-	size_t size = 0;
-	int bit_ptr = 0;
-
-	while (tinywav_read_f(&tw, samples, STD_SAMPLE_COUNT) != 0) {
-		uint8_t bit = (*decode_functions[enc_dec_mode])(samples, buffer, &size, &bit_ptr);
-
-		*(buffer + size) |= (bit << bit_ptr++);
-
-		if (bit_ptr == 8) {
-			bit_ptr = 0;
-			buffer = realloc(buffer, ++size + 1);
-		}
-	}
-
-	fwrite(buffer, 1, size + 1, to);
-
-	free(samples);
-}
 
 // encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation
 // encoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation
@@ -110,7 +41,7 @@ int main(int argc, char **argv) {
 			printf("\tb - File to encode / decode data to\n");
 			printf("\t-mode <name> - The name of the backend to use (hint: execute command encoder.out modes)\n");
 			printf("\t-fm - Enable frequency modulated mode\n");
-			printf("\t-cpb <integer> - Cycles Per Bit in FM mode, otherwise Samples Per Bit in PM mode\n");
+			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance\n"); // Express this in plainer english
 			return 0;
 		} else if (strcmp(argv[1], "modes") == 0) {
 			for (int i = 0; i < BACKEND_COUNT; i++)
@@ -160,7 +91,9 @@ int main(int argc, char **argv) {
 				fm_mode = 1;
 			} else if (strcmp(argv[i], "-cpb") == 0) {
 				cycles_per_bit = atoi(argv[i + 1]);
-			}
+			} else if (strcmp(argv[i], "-tolerance") == 0) {
+				tolerance = atoi(argv[i + 1]);
+			} 
 		}
 
 	}
@@ -168,13 +101,16 @@ int main(int argc, char **argv) {
 	(*functions_init[enc_dec_mode])();
 
 	if (mode == 1) {
-		decode();
+		uint8_t *buffer;
+		size_t size = (*decode_functions[enc_dec_mode])(buffer);
+
+		fwrite(buffer, 1, size, to);
 		tinywav_close_read(&tw);
 
 		return 0;
 	}
 
-	encode();
+	(*encode_functions[enc_dec_mode])();
 	tinywav_close_write(&tw);
 
 	return 0;
