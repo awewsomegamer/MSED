@@ -12,14 +12,14 @@ TinyWav tw;
 
 int cycles_per_bit = 1;
 int enc_dec_mode = 0;
-int tolerance = 0;
+float tolerance = 0;
 uint8_t fm_mode = 0;
 
 void (*encode_functions[BACKEND_COUNT])() = {
 	[BACKEND_STD] = backend_std_encode,
 };
 
-size_t (*decode_functions[BACKEND_COUNT])(uint8_t *) = {
+size_t (*decode_functions[BACKEND_COUNT])(uint8_t **) = {
 	[BACKEND_STD] = backend_std_decode,
 };
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
 			} else if (strcmp(argv[i], "-cpb") == 0) {
 				cycles_per_bit = atoi(argv[i + 1]);
 			} else if (strcmp(argv[i], "-tolerance") == 0) {
-				tolerance = atoi(argv[i + 1]);
+				tolerance = atof(argv[i + 1]);
 			} 
 		}
 
@@ -101,8 +101,8 @@ int main(int argc, char **argv) {
 	(*functions_init[enc_dec_mode])();
 
 	if (mode == 1) {
-		uint8_t *buffer;
-		size_t size = (*decode_functions[enc_dec_mode])(buffer);
+		uint8_t *buffer = NULL;
+		size_t size = (*decode_functions[enc_dec_mode])(&buffer);
 
 		fwrite(buffer, 1, size, to);
 		tinywav_close_read(&tw);
