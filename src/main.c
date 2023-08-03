@@ -36,12 +36,15 @@ int main(int argc, char **argv) {
 	if (argc < 3) {
 		if (strcmp(argv[1], "options") == 0) {
 			printf("    encoder.out a b [options]\n");
+			printf("    Files:\n");
 			printf("\ta - File whose data to encode / decode\n");
 			printf("\t    If file 'a' is a .bin then the program is encoding to 'b', if it is a .wav then it is decoding to 'b'.\n");
 			printf("\tb - File to encode / decode data to\n");
+			printf("    Options:\n");
 			printf("\t-mode <name> - The name of the backend to use (hint: execute command encoder.out modes)\n");
 			printf("\t-fm - Enable frequency modulated mode\n");
-			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance\n"); // Express this in plainer english
+			printf("\t-cbb <integer> - Specify the number of cycles per bit of data (default: 1)\n");
+			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance (default: 0)\n"); // Express this in plainer english
 			return 0;
 		} else if (strcmp(argv[1], "modes") == 0) {
 			for (int i = 0; i < BACKEND_COUNT; i++)

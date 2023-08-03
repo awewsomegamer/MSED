@@ -18,13 +18,8 @@ float *encoded_zero_exp = NULL;
 int sample_wave_size = 0;
 
 void backend_std_init() {
-	// Measure sample count to represent one cycle
+	// Pre-calculate a 1 and a 0, as well as measuring how many samples it takes to write each one
 	if (fm_mode) {
-		if (cycles_per_bit > 1)
-			printf("Note: Encoding data using multiple cycles is not yet supported in FM mode. The number of cycles per bit will be set to 1.\n");
-		cycles_per_bit = 1;
-
-
 		int transients = 0;	
 		float time = 0;
 		
@@ -69,9 +64,6 @@ void backend_std_init() {
 		// Get minimum of either sample count
 		sample_wave_size = (encoded_zero_sc < encoded_one_sc) ? encoded_zero_sc : encoded_one_sc;
 
-		encoded_one_exp = realloc(encoded_one_exp, sample_wave_size);
-		encoded_zero_exp = realloc(encoded_zero_exp, sample_wave_size);
-
 		assert(encoded_one_sc != 0);
 		assert(encoded_zero_sc != 0);
 		assert(encoded_one_exp != NULL);
@@ -99,18 +91,9 @@ void backend_std_encode() {
 		for (int i = 0 ; i < file_size; i++) {
 			for (int j = 0; j < 8; j++) {
 				uint8_t value = (data[i] >> j) & 1;
-				int s = value ? encoded_one_sc : encoded_zero_sc;
-				samples = (float *)malloc(s * sizeof(float));
 
-				float time = 0;
-				for (int si = 0; si < s; si++) {
-					samples[si] = FM_WAVIFY(time, (float)(value ? ONE : ZERO));
-					time += TIME_INC;
-				}
-
-				tinywav_write_f(&tw, samples, s);
-
-				free(samples);
+				for (int c = 0; c < cycles_per_bit; c++)
+					tinywav_write_f(&tw, value ? encoded_one_exp : encoded_zero_exp, value ? encoded_one_sc : encoded_zero_sc);
 			}
 		}
 
@@ -177,6 +160,14 @@ size_t backend_std_decode(uint8_t **buffer) {
 				tinywav_read_f(&tw, samples, sc);
 			}
 			
+			sc = (value ? encoded_one_sc : encoded_zero_sc);
+
+			float *scratch = (float *)malloc(sc * sizeof(float));
+			for (int c = 1; c < cycles_per_bit; c++)
+				tinywav_read_f(&tw, scratch, sc);
+
+			free(scratch);
+
 			buffer[0][buffer_size] |= (value << bit_ptr++);
 	
 			if (bit_ptr == 8) {
