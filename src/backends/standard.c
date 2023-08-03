@@ -6,7 +6,10 @@
 #include <string.h>
 #include <assert.h>
 
+#define SAMPLE_RATE 480000
+#define STD_SAMPLE_COUNT (SAMPLE_RATE / 10)
 #define TIME_INC 0.00001
+
 #define ZERO 800.0f
 #define ONE (float)(ZERO * 2)
 #define LEADER SAMPLE_RATE
@@ -17,7 +20,7 @@ float *encoded_one_exp = NULL;
 float *encoded_zero_exp = NULL;
 int sample_wave_size = 0;
 
-void backend_std_init() {
+int backend_std_init() {
 	// Pre-calculate a 1 and a 0, as well as measuring how many samples it takes to write each one
 	if (fm_mode) {
 		int transients = 0;	
@@ -70,6 +73,8 @@ void backend_std_init() {
 		assert(encoded_zero_exp != NULL);
 		assert(sample_wave_size != 0);
 	}
+
+	return SAMPLE_RATE;
 }
 
 void backend_std_encode() {

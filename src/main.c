@@ -23,7 +23,7 @@ size_t (*decode_functions[BACKEND_COUNT])(uint8_t **) = {
 	[BACKEND_STD] = backend_std_decode,
 };
 
-void (*functions_init[BACKEND_COUNT])() = { 
+int (*functions_init[BACKEND_COUNT])() = { 
 	[BACKEND_STD] = backend_std_init,
 };
 
@@ -74,12 +74,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (mode == 0)
-		// Idea: Wouldn't it be neat to have multiple channels of data?
-		tinywav_open_write(&tw, 1, SAMPLE_RATE, TW_FLOAT32, TW_INLINE, argv[2]);
-	else
-		tinywav_open_read(&tw, argv[1], TW_INLINE);
-
 	// More options have been specified
 	if (argc >= 3) {
 		for (int i = 3; i < argc; i++) {
@@ -101,7 +95,13 @@ int main(int argc, char **argv) {
 
 	}
 
-	(*functions_init[enc_dec_mode])();
+	int sample_rate = (*functions_init[enc_dec_mode])();
+
+	if (mode == 0)
+		// Idea: Wouldn't it be neat to have multiple channels of data?
+		tinywav_open_write(&tw, 1, sample_rate, TW_FLOAT32, TW_INLINE, argv[2]);
+	else
+		tinywav_open_read(&tw, argv[1], TW_INLINE);
 
 	if (mode == 1) {
 		uint8_t *buffer = NULL;
