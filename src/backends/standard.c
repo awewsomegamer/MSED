@@ -14,6 +14,8 @@
 #define ONE (float)(ZERO * 2)
 #define LEADER SAMPLE_RATE
 
+#define AMPLITUDE 1/2
+
 int encoded_one_sc = 0;
 int encoded_zero_sc = 0;
 float *encoded_one_exp = NULL;
@@ -28,14 +30,14 @@ int backend_std_init() {
 		
 		encoded_one_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 
-		float last = FM_WAVIFY(time, ONE);
+		float last = WAVIFY(time, ONE, AMPLITUDE);
 		while (transients < 3) {
-			if (last <= 0 && FM_WAVIFY(time, ONE) >= 0)
+			if (last <= 0 && WAVIFY(time, ONE, AMPLITUDE) >= 0)
 				transients++;
 
-			last = FM_WAVIFY(time, ONE);
+			last = WAVIFY(time, ONE, AMPLITUDE);
 
-			encoded_one_exp[encoded_one_sc++] = FM_WAVIFY(time, ONE);
+			encoded_one_exp[encoded_one_sc++] = WAVIFY(time, ONE, AMPLITUDE);
 
 			time += TIME_INC;
 		}
@@ -48,14 +50,14 @@ int backend_std_init() {
 
 		encoded_zero_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 
-		last = FM_WAVIFY(time, ZERO);
+		last = WAVIFY(time, ZERO, AMPLITUDE);
 		while (transients < 3) {
-			if (last <= 0 && FM_WAVIFY(time, ZERO) >= 0)
+			if (last <= 0 && WAVIFY(time, ZERO, AMPLITUDE) >= 0)
 				transients++;
 
-			last = FM_WAVIFY(time, ZERO);
+			last = WAVIFY(time, ZERO, AMPLITUDE);
 
-			encoded_zero_exp[encoded_zero_sc++] = FM_WAVIFY(time, ZERO);
+			encoded_zero_exp[encoded_zero_sc++] = WAVIFY(time, ZERO, AMPLITUDE);
 
 			time += TIME_INC;
 		}
@@ -112,7 +114,7 @@ void backend_std_encode() {
 			uint8_t value = (data[i] >> j) & 1;
 
 			for (int si = 0; si < cycles_per_bit; si++)
-				samples[si] = PM_WAVIFY((value ? ONE : ZERO));
+				samples[si] = WAVIFY(1, (value ? ONE : ZERO), AMPLITUDE);
 			
 			tinywav_write_f(&tw, samples, cycles_per_bit);
 		}
@@ -190,7 +192,7 @@ size_t backend_std_decode(uint8_t **buffer) {
 	uint8_t bit_ptr = 0;
 	
 	while (tinywav_read_f(&tw, samples, cycles_per_bit) != 0) {
-		buffer[0][buffer_size] |= (((float)PM_WAVIFY(ONE) == (float)samples[0]) << bit_ptr++);
+		buffer[0][buffer_size] |= (((float)WAVIFY(1, ONE, AMPLITUDE) == (float)samples[0]) << bit_ptr++);
 
 		if (bit_ptr == 8) {
 			bit_ptr = 0;

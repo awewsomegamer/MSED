@@ -9,8 +9,8 @@
 #include "backends/standard.h"
 #include "tinywav.h"
 
-#define FM_WAVIFY(time, freq) (sin((float)time * (float)freq) / 2)
-#define PM_WAVIFY(freq) (sin((float)freq) / 2)
+#define WAVIFY(time, freq, amp) (sin((float)time * (float)freq) * (float)amp)
+// #define PM_WAVIFY(freq, amp) (sin((float)freq) * (float)amp)
 
 extern int cycles_per_bit;
 extern int enc_dec_mode;
