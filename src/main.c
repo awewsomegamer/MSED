@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 	// Initialize
 	from = fopen(argv[1], "r");
 	to = fopen(argv[2], "w+");
-	mode = *(argv[2] + strlen(argv[2]) - 1) == 'n';
+	mode = (*(argv[2] + strlen(argv[2]) - 3) != 'w') && (*(argv[2] + strlen(argv[2]) - 2) != 'a') && (*(argv[2] + strlen(argv[2]) - 1) != 'v');
 
 	// Ensure we have opened the "from" file
 	if (from == NULL) {

@@ -281,7 +281,7 @@ size_t msed_backend_std_decode(uint8_t **buffer) {
 		// Memory manage
 		free(samples);
 
-		return buffer_size + 1;
+		return buffer_size;
 	}
 
 	// PM Decoder
@@ -306,5 +306,5 @@ size_t msed_backend_std_decode(uint8_t **buffer) {
 	// Memory manage
 	free(samples);
 
-	return buffer_size + 1;
+	return buffer_size;
 }
