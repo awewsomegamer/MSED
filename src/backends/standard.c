@@ -1,4 +1,4 @@
-#include "../include/backends/standard.h"
+#include "../include/backends/msed_standard.h"
 #include "../include/main.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -13,7 +13,6 @@
 #define ZERO 800.0f
 #define ONE (float)(ZERO * 2)
 #define LEADER SAMPLE_RATE
-
 #define AMPLITUDE 1/2
 
 int encoded_one_sc = 0;
@@ -22,17 +21,21 @@ float *encoded_one_exp = NULL;
 float *encoded_zero_exp = NULL;
 int sample_wave_size = 0;
 
-int backend_std_init() {
+int msed_backend_std_init() {
 	// Pre-calculate a 1 and a 0, as well as measuring how many samples it takes to write each one
 	if (modulation_mode == FM_MODE) {
-		int transients = 0;	
+		// Generation variables
+		int transients = 0;
 		float time = 0;
 		
+		// Allocate the samples buffer for a 1
 		encoded_one_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_one_exp != NULL);
 
+		// Fill the buffer with an FM cycle representing a 1
 		float last = WAVIFY(time, ONE, AMPLITUDE);
 		while (transients < 3) {
+			// Count the amount of times we cross 0
 			if (last <= 0 && WAVIFY(time, ONE, AMPLITUDE) >= 0)
 				transients++;
 
@@ -46,14 +49,18 @@ int backend_std_init() {
 		// Increment once more, index -> size
 		encoded_one_sc++;
 
+		// Reset variables used for generation
 		time = 0;
 		transients = 0;
 
+		// Allocate the samples buffer for a 0
 		encoded_zero_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_zero_exp != NULL);
 
+		// Fill the buffer with an FM cycle representing a 0
 		last = WAVIFY(time, ZERO, AMPLITUDE);
 		while (transients < 3) {
+			// Count the amount of times we cross 0
 			if (last <= 0 && WAVIFY(time, ZERO, AMPLITUDE) >= 0)
 				transients++;
 
@@ -72,9 +79,9 @@ int backend_std_init() {
 		sample_wave_size = (encoded_zero_sc < encoded_one_sc) ? encoded_zero_sc : encoded_one_sc;
 
 		// Save on memory
-		encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc);
+		encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc * sizeof(float));
 		assert(encoded_one_exp != NULL);
-		encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc);
+		encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc * sizeof(float));
 		assert(encoded_zero_exp != NULL);
 
 		// Asserts
@@ -82,11 +89,14 @@ int backend_std_init() {
 		assert(encoded_one_sc != 0);
 		assert(encoded_zero_sc != 0);
 	} else if (modulation_mode == AM_MODE) {
+		// Generation variable
 		float time = 0;
 
+		// Alocate samples buffer for an encoded one
 		encoded_one_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_one_exp != NULL);
 
+		// Fill the buffer with an AM cycle representing a 1
 		for (int i = 0; i < SAMPLE_RATE; i++) {
 			encoded_one_exp[i] = WAVIFY(time, ONE, AMPLITUDE);
 			time += TIME_INC;
@@ -100,11 +110,14 @@ int backend_std_init() {
 
 		encoded_one_sc++;
 
+		// Reset generation variable
 		time = 0;
 
+		// Allocate samples buffer for an encoded zero
 		encoded_zero_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_zero_exp != NULL);
 		
+		// Fill the buffer with an AM cycle representing a 0
 		for (int i = 0; i < SAMPLE_RATE; i++) {
 			encoded_zero_exp[i] = WAVIFY(time, ONE, AMPLITUDE / 2);
 			time += TIME_INC;
@@ -118,11 +131,11 @@ int backend_std_init() {
 
 		sample_wave_size = (encoded_zero_sc < encoded_one_sc) ? encoded_zero_sc : encoded_one_sc;
 
-		// // Save on memory
-		// encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc);
-		// assert(encoded_one_exp != NULL);
-		// encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc);
-		// assert(encoded_zero_exp != NULL);
+		// Save on memory
+		encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc * sizeof(float));
+		assert(encoded_one_exp != NULL);
+		encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc * sizeof(float));
+		assert(encoded_zero_exp != NULL);
 
 		// Asserts
 		assert(sample_wave_size != 0);
@@ -133,7 +146,7 @@ int backend_std_init() {
 	return SAMPLE_RATE;
 }
 
-void backend_std_encode() {
+void msed_backend_std_encode() {
 	// Get the size of the file to be encoded
 	fseek(from, 0, SEEK_END);
 	size_t file_size = ftell(from);
@@ -191,7 +204,7 @@ void backend_std_encode() {
 	free(samples);
 }
 
-size_t backend_std_decode(uint8_t **buffer) {
+size_t msed_backend_std_decode(uint8_t **buffer) {
 	// Initialize the data buffer
 	*buffer = malloc(1);
 	size_t buffer_size = 0;
@@ -268,15 +281,10 @@ size_t backend_std_decode(uint8_t **buffer) {
 		// Memory manage
 		free(samples);
 
-		return buffer_size;
-	}
-
-	if (modulation_mode == AM_MODE) {
-
+		return buffer_size + 1;
 	}
 
 	// PM Decoder
-
 	// Initialize sample buffer
 	samples = (float *)malloc(cycles_per_bit * sizeof(float));
 	uint8_t bit_ptr = 0;
@@ -298,5 +306,5 @@ size_t backend_std_decode(uint8_t **buffer) {
 	// Memory manage
 	free(samples);
 
-	return buffer_size;
+	return buffer_size + 1;
 }

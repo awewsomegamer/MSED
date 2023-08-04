@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "include/backends/msed_standard.h"
 #include "include/main.h"
 #include "include/tinywav.h"
 
@@ -14,18 +15,6 @@ int cycles_per_bit = 1;
 int enc_dec_mode = 0;
 float tolerance = 0;
 uint8_t modulation_mode = PM_MODE;
-
-void (*encode_functions[BACKEND_COUNT])() = {
-	[BACKEND_STD] = backend_std_encode,
-};
-
-size_t (*decode_functions[BACKEND_COUNT])(uint8_t **) = {
-	[BACKEND_STD] = backend_std_decode,
-};
-
-int (*functions_init[BACKEND_COUNT])() = { 
-	[BACKEND_STD] = backend_std_init,
-};
 
 // encoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation
 // encoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation
@@ -41,16 +30,16 @@ int main(int argc, char **argv) {
 			printf("\t    If file 'a' is a .bin then the program is encoding to 'b', if it is a .wav then it is decoding to 'b'.\n");
 			printf("\tb - File to encode / decode data to\n");
 			printf("    Options:\n");
-			printf("\t-mode <name> - The name of the backend to use (hint: execute command encoder.out modes)\n");
+			printf("\t-mode <name> - The name of the backend to use (hint: execute command msed backends)\n");
 			printf("\t-pm - Change to pulse modulated mode (default)\n");
 			printf("\t-fm - Change to frequency modulated mode\n");
 			printf("\t-am - Change to amplitude modulated mode\n");
-			printf("\t-cbb <integer> - Specify the number of cycles per bit of data (default: 1)\n");
+			printf("\t-cpb <integer> - Specify the number of cycles per bit of data (default: 1)\n");
 			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance (default: 0)\n"); // Express this in plainer english
 			return 0;
-		} else if (strcmp(argv[1], "modes") == 0) {
+		} else if (strcmp(argv[1], "backends") == 0) {
 			for (int i = 0; i < BACKEND_COUNT; i++)
-				printf("%s\n", enc_dec_modes[i]);
+				printf("%s\n", backends[i].name);
 
 			return 0;
 		}
@@ -80,8 +69,8 @@ int main(int argc, char **argv) {
 	if (argc >= 3) {
 		for (int i = 3; i < argc; i++) {
 			if (strcmp(argv[i], "-mode") == 0) {
-				for (int j = 0; j < sizeof(enc_dec_modes) / sizeof(enc_dec_modes[0]); j++) {
-					if (strcmp(argv[i + 1], enc_dec_modes[j]) == 0) {
+				for (int j = 0; j < BACKEND_COUNT; j++) {
+					if (strcmp(argv[i + 1], backends[i].name) == 0) {
 						enc_dec_mode = i;
 						break;
 					}
@@ -92,14 +81,17 @@ int main(int argc, char **argv) {
 				modulation_mode = AM_MODE;
 			} else if (strcmp(argv[i], "-cpb") == 0) {
 				cycles_per_bit = atoi(argv[i + 1]);
+				if (cycles_per_bit == 0) {
+					printf("Cycles per bit cannot be 0!\n");
+					return 1;
+				}
 			} else if (strcmp(argv[i], "-tolerance") == 0) {
 				tolerance = atof(argv[i + 1]);
 			} 
 		}
-
 	}
 
-	int sample_rate = (*functions_init[enc_dec_mode])();
+	int sample_rate = (*backends[enc_dec_mode].functions_init)();
 
 	if (mode == 0)
 		// Idea: Wouldn't it be neat to have multiple channels of data?
@@ -108,8 +100,9 @@ int main(int argc, char **argv) {
 		tinywav_open_read(&tw, argv[1], TW_INLINE);
 
 	if (mode == 1) {
+		// Decode
 		uint8_t *buffer = NULL;
-		size_t size = (*decode_functions[enc_dec_mode])(&buffer);
+		size_t size = (*backends[enc_dec_mode].decode_function)(&buffer);
 
 		fwrite(buffer, 1, size, to);
 		tinywav_close_read(&tw);
@@ -117,7 +110,8 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	(*encode_functions[enc_dec_mode])();
+	// Encode
+	(*backends[enc_dec_mode].encode_function)();
 	tinywav_close_write(&tw);
 
 	return 0;
