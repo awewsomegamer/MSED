@@ -189,7 +189,7 @@ void msed_backend_std_encode() {
 		// In little endian order, write bits
 		for (int j = 0; j < 8; j++) {
 			// Get current bit
-			uint8_t value = (data[i] >> j) & 1;
+			uint8_t value = (data[i] >> j) & 1; //(data[i] >> j) & 1;
 
 			// Fill sample buffer
 			for (int si = 0; si < cycles_per_bit; si++)
@@ -275,6 +275,9 @@ size_t msed_backend_std_decode(uint8_t **buffer) {
 				// Yes, reset the bit pointer and allocate one more byte to the buffer
 				bit_ptr = 0;
 				*buffer = realloc(*buffer, ++buffer_size + 1);
+
+				// Clear new byte
+				buffer[0][buffer_size] = 0;
 			}
 		}
 
@@ -293,13 +296,16 @@ size_t msed_backend_std_decode(uint8_t **buffer) {
 	// to the number of samples we need to read per bit)
 	while (tinywav_read_f(&tw, samples, cycles_per_bit) != 0) {
 		// Compare the sample to either a 1 or a zero, and place it in the current byte of the buffer
-		buffer[0][buffer_size] |= (((float)WAVIFY(1, ONE, AMPLITUDE) == (float)samples[0]) << bit_ptr++);
+		buffer[0][buffer_size] |= ((samples[0] == (float)WAVIFY(1, ONE, AMPLITUDE)) << bit_ptr++);
 
 		// Have we filled up a byte?
 		if (bit_ptr == 8) {
 			// Yes, reset the bit pointer and allocate one more byte to the buffer
 			bit_ptr = 0;
 			*buffer = realloc(*buffer, ++buffer_size + 1);
+
+			// Clear new byte
+			buffer[0][buffer_size] = 0;
 		}
 	}
 
