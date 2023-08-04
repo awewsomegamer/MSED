@@ -13,7 +13,7 @@ TinyWav tw;
 int cycles_per_bit = 1;
 int enc_dec_mode = 0;
 float tolerance = 0;
-uint8_t fm_mode = 0;
+uint8_t modulation_mode = PM_MODE;
 
 void (*encode_functions[BACKEND_COUNT])() = {
 	[BACKEND_STD] = backend_std_encode,
@@ -42,7 +42,9 @@ int main(int argc, char **argv) {
 			printf("\tb - File to encode / decode data to\n");
 			printf("    Options:\n");
 			printf("\t-mode <name> - The name of the backend to use (hint: execute command encoder.out modes)\n");
-			printf("\t-fm - Enable frequency modulated mode\n");
+			printf("\t-pm - Change to pulse modulated mode (default)\n");
+			printf("\t-fm - Change to frequency modulated mode\n");
+			printf("\t-am - Change to amplitude modulated mode\n");
 			printf("\t-cbb <integer> - Specify the number of cycles per bit of data (default: 1)\n");
 			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance (default: 0)\n"); // Express this in plainer english
 			return 0;
@@ -85,7 +87,9 @@ int main(int argc, char **argv) {
 					}
 				}
 			} else if (strcmp(argv[i], "-fm") == 0) {
-				fm_mode = 1;
+				modulation_mode = FM_MODE;
+			} else if (strcmp(argv[i], "-am") == 0) {
+				modulation_mode = AM_MODE;
 			} else if (strcmp(argv[i], "-cpb") == 0) {
 				cycles_per_bit = atoi(argv[i + 1]);
 			} else if (strcmp(argv[i], "-tolerance") == 0) {

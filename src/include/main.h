@@ -10,12 +10,14 @@
 #include "tinywav.h"
 
 #define WAVIFY(time, freq, amp) (sin((float)time * (float)freq) * (float)amp)
-// #define PM_WAVIFY(freq, amp) (sin((float)freq) * (float)amp)
+#define PM_MODE 0
+#define FM_MODE 1
+#define AM_MODE 2
 
 extern int cycles_per_bit;
 extern int enc_dec_mode;
 extern float tolerance;
-extern uint8_t fm_mode;
+extern uint8_t modulation_mode;
 
 extern FILE *from;
 extern FILE *to;

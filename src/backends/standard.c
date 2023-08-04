@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #define SAMPLE_RATE 480000
-#define STD_SAMPLE_COUNT (SAMPLE_RATE / 10)
+#define STD_SAMPLE_COUNT 1000
 #define TIME_INC 0.00001
 
 #define ZERO 800.0f
@@ -24,11 +24,12 @@ int sample_wave_size = 0;
 
 int backend_std_init() {
 	// Pre-calculate a 1 and a 0, as well as measuring how many samples it takes to write each one
-	if (fm_mode) {
+	if (modulation_mode == FM_MODE) {
 		int transients = 0;	
 		float time = 0;
 		
 		encoded_one_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
+		assert(encoded_one_exp != NULL);
 
 		float last = WAVIFY(time, ONE, AMPLITUDE);
 		while (transients < 3) {
@@ -49,6 +50,7 @@ int backend_std_init() {
 		transients = 0;
 
 		encoded_zero_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
+		assert(encoded_zero_exp != NULL);
 
 		last = WAVIFY(time, ZERO, AMPLITUDE);
 		while (transients < 3) {
@@ -69,11 +71,63 @@ int backend_std_init() {
 		// Get minimum of either sample count
 		sample_wave_size = (encoded_zero_sc < encoded_one_sc) ? encoded_zero_sc : encoded_one_sc;
 
+		// Save on memory
+		encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc);
+		assert(encoded_one_exp != NULL);
+		encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc);
+		assert(encoded_zero_exp != NULL);
+
+		// Asserts
+		assert(sample_wave_size != 0);
 		assert(encoded_one_sc != 0);
 		assert(encoded_zero_sc != 0);
+	} else if (modulation_mode == AM_MODE) {
+		float time = 0;
+
+		encoded_one_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_one_exp != NULL);
+
+		for (int i = 0; i < SAMPLE_RATE; i++) {
+			encoded_one_exp[i] = WAVIFY(time, ONE, AMPLITUDE);
+			time += TIME_INC;
+			encoded_one_sc++;
+
+			if (i >= STD_SAMPLE_COUNT && (encoded_one_exp[i - 1] <= 0 && encoded_one_exp[i] >= 0)) {
+				encoded_one_exp[i] = 0;
+				break;
+			}
+		}
+
+		encoded_one_sc++;
+
+		time = 0;
+
+		encoded_zero_exp = (float *)malloc(SAMPLE_RATE * sizeof(float));
 		assert(encoded_zero_exp != NULL);
+		
+		for (int i = 0; i < SAMPLE_RATE; i++) {
+			encoded_zero_exp[i] = WAVIFY(time, ONE, AMPLITUDE / 2);
+			time += TIME_INC;
+			encoded_zero_sc++;
+
+			if (i >= STD_SAMPLE_COUNT && (encoded_zero_exp[i - 1] <= 0 && encoded_zero_exp[i] >= 0))
+				break;
+		}
+
+		encoded_zero_sc++;
+
+		sample_wave_size = (encoded_zero_sc < encoded_one_sc) ? encoded_zero_sc : encoded_one_sc;
+
+		// // Save on memory
+		// encoded_one_exp = realloc(encoded_one_exp, encoded_one_sc);
+		// assert(encoded_one_exp != NULL);
+		// encoded_zero_exp = realloc(encoded_zero_exp, encoded_zero_sc);
+		// assert(encoded_zero_exp != NULL);
+
+		// Asserts
 		assert(sample_wave_size != 0);
+		assert(encoded_one_sc != 0);
+		assert(encoded_zero_sc != 0);
 	}
 
 	return SAMPLE_RATE;
@@ -92,13 +146,19 @@ void backend_std_encode() {
 	float *samples = (float *)malloc(LEADER * sizeof(float));
 	memset(samples, 0, LEADER * sizeof(float));
 	tinywav_write_f(&tw, samples, LEADER);
+	// Memory manage
 	free(samples);
 
-	if (fm_mode) {
+	// FM Encoder / AM Encoder
+	if (modulation_mode == FM_MODE || modulation_mode == AM_MODE) {
+		// Read every byte
 		for (int i = 0 ; i < file_size; i++) {
+			// In little endian order, write bits
 			for (int j = 0; j < 8; j++) {
+				// Get current bit
 				uint8_t value = (data[i] >> j) & 1;
 
+				// Write the pre-calculated 1 or 0 sample buffer cycles_per_bit amount of times
 				for (int c = 0; c < cycles_per_bit; c++)
 					tinywav_write_f(&tw, value ? encoded_one_exp : encoded_zero_exp, value ? encoded_one_sc : encoded_zero_sc);
 			}
@@ -107,35 +167,51 @@ void backend_std_encode() {
 		return;
 	}
 	
+	// PM Encoder
+	// Allocate sample buffer
 	samples = (float *)malloc(cycles_per_bit * sizeof(float));
 
+	// Read every byte
 	for (int i = 0 ; i < file_size; i++) {
+		// In little endian order, write bits
 		for (int j = 0; j < 8; j++) {
+			// Get current bit
 			uint8_t value = (data[i] >> j) & 1;
 
+			// Fill sample buffer
 			for (int si = 0; si < cycles_per_bit; si++)
 				samples[si] = WAVIFY(1, (value ? ONE : ZERO), AMPLITUDE);
 			
+			// Write sample buffer
 			tinywav_write_f(&tw, samples, cycles_per_bit);
 		}
 	}
 
+	// Memory manage
 	free(samples);
 }
 
 size_t backend_std_decode(uint8_t **buffer) {
+	// Initialize the data buffer
 	*buffer = malloc(1);
 	size_t buffer_size = 0;
 
+	// Read in 1 second header
 	float *samples = (float *)malloc(LEADER * sizeof(float));
 	tinywav_read_f(&tw, samples, LEADER);
+	// Memory manage
 	free(samples);
 
-	if (fm_mode) {
+	// FM Decoder / AM Decoder
+	if (modulation_mode == FM_MODE || modulation_mode == AM_MODE) {
+		// Initialize the sample buffer
 		samples = (float *)malloc(sample_wave_size * sizeof(float));
 		int bit_ptr = 0;
-
+		
+		// While we can read samples
 		while (tinywav_read_f(&tw, samples, sample_wave_size) != 0) {
+			// Compare the current sample  buffer to pre-calculated 1 and 0 buffers
+			// and tally the matches between the two (including tolerance)
 			int one_matches = 0;
 			int zero_matches = 0;
 
@@ -158,6 +234,7 @@ size_t backend_std_decode(uint8_t **buffer) {
 				value = 1;
 			}
 			
+			// Read in the rest of the cycle (if we haven't already done so)
 			sc -= sample_wave_size;
 
 			if (sc > 0) {
@@ -167,41 +244,59 @@ size_t backend_std_decode(uint8_t **buffer) {
 				tinywav_read_f(&tw, samples, sc);
 			}
 			
+			// Read in the rest of the cycles for this bit (if we have't already done so)
 			sc = (value ? encoded_one_sc : encoded_zero_sc);
 
 			float *scratch = (float *)malloc(sc * sizeof(float));
 			for (int c = 1; c < cycles_per_bit; c++)
 				tinywav_read_f(&tw, scratch, sc);
 
+			// Memory manage
 			free(scratch);
 
+			// Write the bit to the current byte of the buffer
 			buffer[0][buffer_size] |= (value << bit_ptr++);
-	
+
+			// Have we filled up the byte?
 			if (bit_ptr == 8) {
+				// Yes, reset the bit pointer and allocate one more byte to the buffer
 				bit_ptr = 0;
 				*buffer = realloc(*buffer, ++buffer_size + 1);
 			}
 		}
 
+		// Memory manage
 		free(samples);
 
 		return buffer_size;
 	}
 
+	if (modulation_mode == AM_MODE) {
+
+	}
+
+	// PM Decoder
+
+	// Initialize sample buffer
 	samples = (float *)malloc(cycles_per_bit * sizeof(float));
 	uint8_t bit_ptr = 0;
 	
+	// While we can read samples (in this case the number of cycles per bit corresponds nicely
+	// to the number of samples we need to read per bit)
 	while (tinywav_read_f(&tw, samples, cycles_per_bit) != 0) {
+		// Compare the sample to either a 1 or a zero, and place it in the current byte of the buffer
 		buffer[0][buffer_size] |= (((float)WAVIFY(1, ONE, AMPLITUDE) == (float)samples[0]) << bit_ptr++);
 
+		// Have we filled up a byte?
 		if (bit_ptr == 8) {
+			// Yes, reset the bit pointer and allocate one more byte to the buffer
 			bit_ptr = 0;
 			*buffer = realloc(*buffer, ++buffer_size + 1);
 		}
 	}
 
+	// Memory manage
 	free(samples);
 
-	// Decode from PM
 	return buffer_size;
 }
