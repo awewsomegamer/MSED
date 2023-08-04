@@ -25,6 +25,17 @@ Files: <br>
 	-tolerance <integer> - Plus or minus <integer> sample value tolerance (default: 0)
 ```
 
+## Building from source
+
+Ensure that you have <a href="https://archlinux.org/packages/core/x86_64/gcc/">`gcc`</a> and <a href="https://archlinux.org/packages/core/x86_64/make/">`make`</a>.
+
+Execute the following command:
+```bash
+make
+```
+This will create a file called `msed` which is the program.
+
+
 ## Creating a new backend
 
 There are three functions which a backend must implement:

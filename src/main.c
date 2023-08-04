@@ -22,6 +22,12 @@ uint8_t modulation_mode = PM_MODE;
 //			       ^
 //			       to
 int main(int argc, char **argv) {
+	// Command line help
+	if (argc == 1) {
+		printf("Use case (only use .bin or .wav files):\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation\nencoder.out <from> <to> [options]\nType encoder.out options to see a list of options.\n");
+		return 1;
+	}
+
 	if (argc < 3) {
 		if (strcmp(argv[1], "options") == 0) {
 			printf("    encoder.out a b [options]\n");
@@ -36,6 +42,7 @@ int main(int argc, char **argv) {
 			printf("\t-am - Change to amplitude modulated mode\n");
 			printf("\t-cpb <integer> - Specify the number of cycles per bit of data (default: 1)\n");
 			printf("\t-tolerance <integer> - Plus or minus <integer> sample value tolerance (default: 0)\n"); // Express this in plainer english
+
 			return 0;
 		} else if (strcmp(argv[1], "backends") == 0) {
 			for (int i = 0; i < BACKEND_COUNT; i++)
@@ -43,9 +50,6 @@ int main(int argc, char **argv) {
 
 			return 0;
 		}
-
-		printf("Use case (only use .bin or .wav files):\nencoder.out path/to/data.bin path/to/data.wav ; Encode .bin data to .wav in standard encoder / decoder mode using pulse modulation\nencoder.out path/to/data.wav path/to/data.bin ; Decode .wav data to .bin in standard encoder / decoder mode using pulse modulation\nencoder.out <from> <to> [options]\nType encoder.out options to see a list of options.\n");
-		return 1;
 	}
 
 	// Initialize
