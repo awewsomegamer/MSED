@@ -1,5 +1,7 @@
 # Modulated Signal Encoder / Decoder (MSED)
 
+<img src="http://awewsomegaming.net/images/MSED/msed_logo_comp_cropped.png" alt="logo">
+
 Simple modulated signal encoder / decoder command line program with swappable backends.
 
 ## Command Line Usage
